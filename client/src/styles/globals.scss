@@ -1,0 +1,105 @@
+/* 全局样式变量 */
+:root {
+  --color-red: #ff2a2a;
+  --color-red-light: #ff4a4a;
+  --color-black: #000000;
+  --color-black-light: #1a1a1a;
+  --color-white: #FFFFFF;
+  --color-gray: #9E9E9E;
+  --color-gray-light: #E0E0E0;
+  --color-text-light: #ddd;
+  
+  --font-family-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  
+  --transition-fast: all 0.3s ease;
+  --transition-normal: all 0.5s ease;
+}
+
+/* 基础样式重置 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: var(--font-family-main);
+}
+
+html,
+body {
+  font-size: 16px;
+  line-height: 1.5;
+  background: linear-gradient(135deg, #0c0c0c 0%, #1a1a1a 100%);
+  color: var(--color-white);
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+  position: relative;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  outline: none;
+}
+
+ul, ol {
+  list-style: none;
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-black);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-red);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-red-light);
+}
+
+/* 通用动画 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromBottom {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.5s ease forwards;
+}
+
+.slide-in {
+  animation: slideInFromBottom 0.5s ease forwards;
+} 
