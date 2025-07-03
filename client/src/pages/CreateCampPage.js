@@ -191,9 +191,12 @@ const CreateCampPage = () => {
     
     try {
       // 这里应该是与合约交互的代码
+      // 模拟创建成功后获得的营地ID
+      const campId = `camp-${Date.now()}`;
+      
       alert(language === 'zh' ? '营地创建成功！合约已部署，正在跳转到营地详情...' : 'Camp created successfully! Contract deployed, redirecting to camp details...');
-      // 跳转到营地详情页面
-      navigate('/camp-details');
+      // 跳转到营地详情页面，使用正确的路由路径
+      navigate(`/camp/${campId}`);
     } catch (error) {
       console.error('创建营地失败:', error);
     }
