@@ -303,6 +303,11 @@ const CampDetailPage = () => {
     }
   };
   
+  // 处理闯关按钮点击
+  const handleChallenge = () => {
+    navigate(`/level/${campId}`);
+  };
+  
   // 渲染钢琴键节点
   const renderPianoNode = (stage, name, isActive) => (
     <div className={`black-key-node ${isActive ? 'active' : ''}`}>
@@ -645,55 +650,33 @@ const CampDetailPage = () => {
         {renderPianoNode(4, language === 'zh' ? "闯关模式" : "Challenge", isActive)}
         
         <div className="white-key">
-          <h3>{language === 'zh' ? "挑战关卡" : "Challenge Levels"}</h3>
-          <div className="value">{camp?.challenges}</div>
-          <div className="label">
-            {language === 'zh' ? "关卡总数" : "Total levels"}
-          </div>
+          <h3>{language === 'zh' ? "挑战关卡" : "Challenges"}</h3>
+          <div className="value">{camp?.challenges || 0}</div>
+          <div className="label">{language === 'zh' ? "总关卡数" : "Total Levels"}</div>
         </div>
         
         <div className="white-key">
           <h3>{language === 'zh' ? "当前进度" : "Current Progress"}</h3>
-          <div className="value">
-            {camp?.status === CAMP_STATUS.CHALLENGE 
-              ? `${language === 'zh' ? "第" : ""} ${camp.currentLevel} ${language === 'zh' ? "关" : ""}` 
-              : "-"}
-          </div>
-          <div className="label">
-            {camp?.status === CAMP_STATUS.CHALLENGE 
-              ? (language === 'zh' ? "进行中" : "In progress")
-              : (language === 'zh' ? "尚未开始" : "Not started")}
-          </div>
+          <div className="value">{camp?.currentLevel || 1}</div>
+          <div className="label">{language === 'zh' ? "当前关卡" : "Current Level"}</div>
         </div>
         
-        {camp?.status === CAMP_STATUS.CHALLENGE ? (
-          <div className="white-key">
-            <h3>{language === 'zh' ? "闯关操作" : "Challenge Action"}</h3>
+        <div className="white-key">
+          <h3>{language === 'zh' ? "操作" : "Action"}</h3>
+          {isCreator ? (
+            <div className="value">{language === 'zh' ? "组织者不可参与闯关" : "Creator cannot challenge"}</div>
+          ) : !hasJoined ? (
+            <div className="value">{language === 'zh' ? "未参与此营地" : "Not joined"}</div>
+          ) : (
             <button 
-              className="challenge-btn"
-              onClick={() => alert(language === 'zh' ? "跳转到关卡详情页" : "Navigate to level details")}
-              disabled={!hasJoined}
+              className="action-btn"
+              onClick={handleChallenge}
             >
-              <div className="icon">
-                <FontAwesomeIcon icon="running" />
-              </div>
-              <h2>{language === 'zh' ? "闯" : "Go"}</h2>
+              <FontAwesomeIcon icon={faRunning} />
+              {language === 'zh' ? "闯关" : "Challenge"}
             </button>
-            <div className="label">
-              {hasJoined 
-                ? (language === 'zh' ? "进入当前关卡" : "Enter current level") 
-                : (language === 'zh' ? "未参加营地" : "Not joined")}
-            </div>
-          </div>
-        ) : (
-          <div className="white-key">
-            <h3>{language === 'zh' ? "排行榜" : "Leaderboard"}</h3>
-            <div className="value">-</div>
-            <div className="label">
-              {language === 'zh' ? "尚未开始" : "Not started"}
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     );
   };
