@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWeb3 } from '../context/Web3Context';
 import { useLanguage } from '../context/LanguageContext';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import Navbar from '../components/Navbar';
 import '../styles/Home.scss';
 
@@ -87,14 +88,14 @@ const HomePage = () => {
       <div className="square-buttons">
         <div className="square-btn left" onClick={() => handleSquareBtnClick('/create-camp')}>
           <div className="icon left">
-            <i className="fas fa-flag"></i>
+            <FontAwesomeIcon icon="flag" />
           </div>
           <h2 className="left">{language === 'zh' ? "发起" : "Create"}</h2>
         </div>
         
         <div className="square-btn right" onClick={() => handleSquareBtnClick('/camps')}>
           <div className="icon right">
-            <i className="fas fa-running"></i>
+            <FontAwesomeIcon icon="running" />
           </div>
           <h2 className="right">{language === 'zh' ? "参加" : "Join"}</h2>
         </div>
@@ -108,19 +109,19 @@ const HomePage = () => {
           
           <div className="wallet-options">
             <div className="wallet-option" onClick={() => handleWalletOptionClick('metamask')}>
-              <i className="fab fa-ethereum"></i>
+              <FontAwesomeIcon icon={["fab", "ethereum"]} />
               <h3>MetaMask</h3>
             </div>
             <div className="wallet-option" onClick={() => handleWalletOptionClick('walletconnect')}>
-              <i className="fas fa-wallet"></i>
+              <FontAwesomeIcon icon="wallet" />
               <h3>WalletConnect</h3>
             </div>
             <div className="wallet-option" onClick={() => handleWalletOptionClick('coinbase')}>
-              <i className="fab fa-bitcoin"></i>
+              <FontAwesomeIcon icon={["fab", "bitcoin"]} />
               <h3>Coinbase Wallet</h3>
             </div>
             <div className="wallet-option" onClick={() => handleWalletOptionClick('fortmatic')}>
-              <i className="fas fa-shield-alt"></i>
+              <FontAwesomeIcon icon="shield-alt" />
               <h3>Fortmatic</h3>
             </div>
           </div>
