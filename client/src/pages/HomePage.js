@@ -27,7 +27,12 @@ const HomePage = () => {
     if (!isConnected) {
       setWalletModalOpen(true);
     } else {
-      navigate(path);
+      // 如果是参加按钮，跳转到挑战营总览页面并默认筛选为"报名开始"状态
+      if (path === '/camps') {
+        navigate('/camps?filter=signup');
+      } else {
+        navigate(path);
+      }
     }
   };
   

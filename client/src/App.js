@@ -5,6 +5,7 @@ import CreateCampPage from './pages/CreateCampPage';
 import CampDetailPage from './pages/CampDetailPage';
 import CreateLevelPage from './pages/CreateLevelPage';
 import LevelDetailPage from './pages/LevelDetailPage';
+import CampsPage from './pages/CampsPage';
 
 const App = () => {
   return (
@@ -12,7 +13,7 @@ const App = () => {
       <Route path="/" element={<HomePage />} />
       {/* 未来将会添加更多路由 */}
       <Route path="/create-camp" element={<CreateCampPage />} />
-      <Route path="/camps" element={<div>营地列表页面</div>} />
+      <Route path="/camps" element={<CampsPage />} />
       <Route path="/camp/:campId" element={<CampDetailPage />} />
       <Route path="/create-level/:campId" element={<CreateLevelPage />} />
       <Route path="/level/:campId" element={<LevelDetailPage />} />
