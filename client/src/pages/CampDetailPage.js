@@ -49,11 +49,11 @@ const CampDetailPage = () => {
         // 实际项目中应通过API或合约获取真实数据
         const mockCampData = {
           id: campId || "camp-001",
-          name: language === 'zh' ? "Web3开发者训练营 - 2023秋季" : "Web3 Developer Camp - Fall 2023",
+          name: language === 'zh' ? "Web3开发者训练营 - 2025秋季" : "Web3 Developer Camp - Fall 2025",
           status: CAMP_STATUS.COMPLETED, // 设置为结营状态
-          signupDeadline: "2023-10-10",
-          campStart: "2023-10-15",
-          campEnd: "2023-12-30",
+          signupDeadline: "2025-10-10",
+          campStart: "2025-10-15",
+          campEnd: "2025-12-30",
           minParticipants: 10,
           maxParticipants: 20,
           currentParticipants: 12, // 达到开营要求
@@ -64,7 +64,7 @@ const CampDetailPage = () => {
           creator: "0x8a3F2b1cD45e67fE8c4d8c6b7a89c4D1",
           contract: "0x7b2F9a1B3cD45e67fE8c4d8c6b7a89c4D19eA3",
           refundStatus: 'pending', // 初始化退款状态: pending, processing, completed
-          createdAt: "2023-09-25"
+          createdAt: "2025-09-25"
         };
         
         // 根据选择的状态调整一些数据
@@ -80,7 +80,7 @@ const CampDetailPage = () => {
           mockCampData.completedParticipants = 9;
           mockCampData.failedParticipants = 3;
           mockCampData.rewardsDistributed = true; // 奖励是否已发放
-          mockCampData.rewardsDate = "2023-12-31"; // 奖励发放日期
+          mockCampData.rewardsDate = "2025-12-31"; // 奖励发放日期
         }
         
         // 模拟参与者数据
@@ -226,18 +226,11 @@ const CampDetailPage = () => {
   // 处理开启关卡
   const handleStartLevel = async () => {
     try {
-      // 实际项目中这里应该调用合约方法
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // 更新状态
-      setCamp(prev => ({
-        ...prev, 
-        status: CAMP_STATUS.CHALLENGE,
-        currentLevel: 1
-      }));
-      
+      // 关闭模态框
       closeModal();
-      alert(language === 'zh' ? "关卡已开启！" : "Levels have been started!");
+      
+      // 跳转到配置关卡页面
+      navigate(`/create-level/${camp.id}`);
     } catch (err) {
       console.error("开启关卡出错:", err);
       alert(language === 'zh' ? "开启关卡失败，请重试" : "Failed to start levels, please try again");
@@ -913,7 +906,7 @@ const CampDetailPage = () => {
         <div className="white-key">
           <h3>{language === 'zh' ? "创建时间" : "Creation Date"}</h3>
           <div className="value">
-            {camp?.createdAt || "2023-09-25"}
+            {camp?.createdAt || "2025-09-25"}
           </div>
         </div>
         
