@@ -72,7 +72,7 @@ const Navbar = () => {
           </div>
           
           {isConnected && (
-            <Link to="/profile" className="dropdown-item">
+            <Link to="/personal" className="dropdown-item">
               <FontAwesomeIcon icon="user-circle" />
               <div>
                 <h4>{language === 'zh' ? '个人空间' : 'Profile'}</h4>

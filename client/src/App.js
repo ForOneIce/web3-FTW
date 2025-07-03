@@ -6,6 +6,7 @@ import CampDetailPage from './pages/CampDetailPage';
 import CreateLevelPage from './pages/CreateLevelPage';
 import LevelDetailPage from './pages/LevelDetailPage';
 import CampsPage from './pages/CampsPage';
+import PersonalPage from './pages/PersonalPage';
 
 const App = () => {
   return (
@@ -17,7 +18,7 @@ const App = () => {
       <Route path="/camp/:campId" element={<CampDetailPage />} />
       <Route path="/create-level/:campId" element={<CreateLevelPage />} />
       <Route path="/level/:campId" element={<LevelDetailPage />} />
-      <Route path="/profile" element={<div>个人空间页面</div>} />
+      <Route path="/personal" element={<PersonalPage />} />
       <Route path="*" element={<div>404 页面未找到</div>} />
     </Routes>
   );
