@@ -21,7 +21,7 @@ library.add(
 const LevelDetailPage = () => {
   const { campId } = useParams();
   const navigate = useNavigate();
-  const { isConnected, address, submitChallengePassword } = useWeb3();
+  const { isConnected, account, submitChallengePassword } = useWeb3();
   const { language } = useLanguage();
   
   // 状态
@@ -155,11 +155,11 @@ const LevelDetailPage = () => {
         setParticipants(participants);
         
         // 检查是否为创建者
-        setIsCreator(address && formattedCamp.creator.toLowerCase() === address.toLowerCase());
+        setIsCreator(account && formattedCamp.creator.toLowerCase() === account.toLowerCase());
         
         // 检查是否已参加
         const userParticipant = participants.find(p => 
-          address && p.address.toLowerCase() === address.toLowerCase()
+          account && p.address.toLowerCase() === account.toLowerCase()
         );
         setHasJoined(!!userParticipant);
         
@@ -181,7 +181,7 @@ const LevelDetailPage = () => {
     };
 
     fetchLevelData();
-  }, [campId, language, address]);
+  }, [campId, language, account]);
 
   // 处理返回
   const handleBack = () => {
@@ -241,7 +241,7 @@ const LevelDetailPage = () => {
         
         // 更新参与者状态
         const updatedParticipants = participants.map(p => {
-          if (address && p.address.toLowerCase() === address.toLowerCase()) {
+          if (account && p.address.toLowerCase() === account.toLowerCase()) {
             return { ...p, completed: true };
           }
           return p;
