@@ -473,6 +473,78 @@
         }
       }
       
+      /* 加载状态 */
+      .loading-state {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 4rem;
+        background: rgba(30, 30, 30, 0.5);
+        border-radius: 15px;
+        border: 2px solid #444;
+        
+        .loading-spinner {
+          font-size: 3rem;
+          color: #d32222;
+          margin-bottom: 1.5rem;
+          animation: spin 1s linear infinite;
+        }
+        
+        h3 {
+          font-size: 1.8rem;
+          margin-bottom: 1rem;
+          color: #d96565;
+        }
+        
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      }
+      
+      /* 错误状态 */
+      .error-state {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 4rem;
+        background: rgba(30, 30, 30, 0.5);
+        border-radius: 15px;
+        border: 2px solid #d32222;
+        
+        svg {
+          font-size: 4rem;
+          color: #d32222;
+          margin-bottom: 1.5rem;
+        }
+        
+        h3 {
+          font-size: 1.8rem;
+          margin-bottom: 1rem;
+          color: #d32222;
+        }
+        
+        p {
+          color: #ccc;
+          margin-bottom: 2rem;
+        }
+        
+        .retry-btn {
+          background: linear-gradient(to right, #d32222, #d96565);
+          color: white;
+          border: none;
+          padding: 12px 30px;
+          border-radius: 30px;
+          font-size: 1rem;
+          font-weight: bold;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          
+          &:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(211, 34, 34, 0.4);
+          }
+        }
+      }
+      
       /* 空状态 */
       .empty-state {
         grid-column: 1 / -1;
@@ -492,6 +564,31 @@
           font-size: 1.8rem;
           margin-bottom: 1rem;
           color: #d32222;
+        }
+        
+        p {
+          color: #ccc;
+          margin-bottom: 2rem;
+        }
+        
+        .create-btn-empty {
+          background: linear-gradient(to right, #d32222, #d96565);
+          color: white;
+          border: none;
+          padding: 15px 35px;
+          border-radius: 30px;
+          font-size: 1.1rem;
+          font-weight: bold;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          
+          &:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(211, 34, 34, 0.4);
+          }
         }
       }
     }

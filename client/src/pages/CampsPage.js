@@ -13,85 +13,22 @@ import {
   faCampground,
   faUser,
   faWallet,
-  faUserCircle
+  faUserCircle,
+  faSpinner
 } from '@fortawesome/free-solid-svg-icons';
 import '../styles/Camps.scss';
 
-// 模拟营地数据 - 后续将从合约获取
-const mockCampsData = [
-  {
-    id: "camp1",
-    name: "Web3开发者训练营 - 2023秋季",
-    status: "completed",
-    signupDeadline: "2023-10-10",
-    challenges: 15,
-    participants: 12,
-    date: "2023-09-25"
-  },
-  {
-    id: "camp2",
-    name: "Solidity智能合约大师班",
-    status: "running",
-    signupDeadline: "2023-11-15",
-    challenges: 20,
-    participants: 18,
-    date: "2023-10-20"
-  },
-  {
-    id: "camp3",
-    name: "区块链安全攻防训练营",
-    status: "success",
-    signupDeadline: "2023-12-01",
-    challenges: 12,
-    participants: 8,
-    date: "2023-11-05"
-  },
-  {
-    id: "camp4",
-    name: "DeFi协议开发实战",
-    status: "signup",
-    signupDeadline: "2023-12-20",
-    challenges: 18,
-    participants: 5,
-    date: "2023-12-01"
-  },
-  {
-    id: "camp5",
-    name: "NFT创作与发行训练营",
-    status: "failed",
-    signupDeadline: "2023-09-30",
-    challenges: 10,
-    participants: 3,
-    date: "2023-09-15"
-  },
-  {
-    id: "camp6",
-    name: "DAO组织治理与管理",
-    status: "completed",
-    signupDeadline: "2023-08-25",
-    challenges: 8,
-    participants: 15,
-    date: "2023-08-10"
-  },
-  {
-    id: "camp7",
-    name: "零知识证明入门与实践",
-    status: "running",
-    signupDeadline: "2023-11-30",
-    challenges: 25,
-    participants: 22,
-    date: "2023-11-10"
-  },
-  {
-    id: "camp8",
-    name: "Web3全栈开发训练营",
-    status: "signup",
-    signupDeadline: "2024-01-15",
-    challenges: 30,
-    participants: 7,
-    date: "2023-12-25"
+// 状态映射函数
+const getStatusFromState = (state) => {
+  switch (state) {
+    case 0: return 'signup';      // 报名阶段
+    case 1: return 'failed';      // 开营失败
+    case 2: return 'success';     // 开营成功
+    case 3: return 'running';     // 闯关阶段
+    case 4: return 'completed';   // 已结营
+    default: return 'signup';
   }
-];
+};
 
 const CampsPage = () => {
   const navigate = useNavigate();
@@ -105,6 +42,8 @@ const CampsPage = () => {
   
   const [activeFilter, setActiveFilter] = useState(defaultFilter);
   const [campsData, setCampsData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [dropdownActive, setDropdownActive] = useState(false);
 
   // 状态图标映射
@@ -125,11 +64,57 @@ const CampsPage = () => {
     "completed": language === 'zh' ? "已结营" : "Completed"
   };
 
+  // 从后端API获取营地数据
+  const fetchCampsData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // 构建API URL，避免重复的/api路径
+    const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+    const apiUrl = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+      const response = await fetch(`${apiUrl}/camps`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('获取到的营地数据:', result);
+      
+      if (result.success && result.data) {
+        // 转换数据格式
+        const formattedCamps = result.data.map(camp => ({
+          id: camp.contract_address,
+          name: camp.name,
+          status: getStatusFromState(camp.state),
+          signupDeadline: new Date(camp.signup_deadline * 1000).toISOString().split('T')[0],
+          challenges: camp.challenge_count,
+          participants: camp.participant_count || 0,
+          date: new Date(camp.created_at * 1000).toISOString().split('T')[0],
+          campEndDate: new Date(camp.camp_end_date * 1000).toISOString().split('T')[0],
+          minParticipants: camp.min_participants,
+          maxParticipants: camp.max_participants,
+          deposit: camp.deposit_amount,
+          creator: camp.organizer_address
+        }));
+        
+        setCampsData(formattedCamps);
+      } else {
+        setCampsData([]);
+      }
+    } catch (error) {
+      console.error('获取营地数据失败:', error);
+      setError(error.message);
+      setCampsData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 初始化加载营地数据
   useEffect(() => {
-    // 这里将来会从合约获取数据
-    // 目前使用模拟数据
-    setCampsData(mockCampsData);
+    fetchCampsData();
   }, []);
 
   // 处理筛选
@@ -302,15 +287,41 @@ const CampsPage = () => {
       
         {/* 营地卡片网格 */}
         <div className="camps-grid">
-          {sortedCamps.length === 0 ? (
+          {loading ? (
+            <div className="loading-state">
+              <FontAwesomeIcon icon={faSpinner} className="loading-spinner" />
+              <h3>{language === 'zh' ? "正在加载营地数据..." : "Loading camps data..."}</h3>
+            </div>
+          ) : error ? (
+            <div className="error-state">
+              <FontAwesomeIcon icon={faTimesCircle} />
+              <h3>{language === 'zh' ? "加载失败" : "Loading Failed"}</h3>
+              <p>{error}</p>
+              <button className="retry-btn" onClick={fetchCampsData}>
+                {language === 'zh' ? "重试" : "Retry"}
+              </button>
+            </div>
+          ) : sortedCamps.length === 0 ? (
             <div className="empty-state">
               <FontAwesomeIcon icon={faCampground} />
-              <h3>{language === 'zh' ? "没有找到匹配的营地" : "No matching camps found"}</h3>
+              <h3>
+                {activeFilter === 'all' 
+                  ? (language === 'zh' ? "暂无营地" : "No camps available")
+                  : (language === 'zh' ? "没有找到匹配的营地" : "No matching camps found")
+                }
+              </h3>
               <p>
-                {language === 'zh' 
-                  ? "尝试选择其他筛选条件或创建新营地" 
-                  : "Try selecting other filters or create a new camp"}
+                {activeFilter === 'all'
+                  ? (language === 'zh' ? "还没有创建任何营地，快来创建第一个营地吧！" : "No camps created yet, create the first one!")
+                  : (language === 'zh' ? "尝试选择其他筛选条件或创建新营地" : "Try selecting other filters or create a new camp")
+                }
               </p>
+              {activeFilter === 'all' && (
+                <button className="create-btn-empty" onClick={handleCreateCamp}>
+                  <FontAwesomeIcon icon={faPlus} />
+                  {language === 'zh' ? "创建营地" : "Create Camp"}
+                </button>
+              )}
             </div>
           ) : (
             sortedCamps.map(camp => (

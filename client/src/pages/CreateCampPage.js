@@ -1,545 +1,485 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ethers } from 'ethers';
 import { useWeb3 } from '../context/Web3Context';
 import { useLanguage } from '../context/LanguageContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import Navbar from '../components/Navbar';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import '../styles/CreateCamp.scss';
+import Navbar from '../components/Navbar';
+
+// 自定义日期选择器样式
+const customDatePickerStyles = `
+  .react-datepicker__time-container .react-datepicker__time {
+    background-color: #222;
+  }
+  .react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box ul.react-datepicker__time-list li.react-datepicker__time-list-item {
+    color: #fff;
+    background-color: #222;
+  }
+  .react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box ul.react-datepicker__time-list li.react-datepicker__time-list-item:hover {
+    background-color: #444;
+  }
+  .react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box ul.react-datepicker__time-list li.react-datepicker__time-list-item--selected {
+    background-color: #ff2a2a;
+  }
+  
+  /* 自定义押金单位样式 */
+  .wei-unit {
+    font-weight: bold;
+    color: #ff2a2a;
+  }
+  
+  .deposit-info {
+    margin-top: 8px;
+    font-size: 0.9rem;
+    color: #aaa;
+  }
+  
+  .deposit-note {
+    margin-top: 5px;
+    font-size: 0.85rem;
+    color: #ff2a2a;
+    font-style: italic;
+  }
+
+  /* 加载动画样式 */
+  .loading-spinner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
 
 const CreateCampPage = () => {
   const navigate = useNavigate();
-  const { isConnected, connect, account } = useWeb3();
+  const { isConnected, account, createCamp, loading, error } = useWeb3();
   const { language } = useLanguage();
   
   // 表单状态
-  const [campName, setCampName] = useState('');
-  const [signupDeadline, setSignupDeadline] = useState(getTomorrowDate());
-  const [campEndDate, setCampEndDate] = useState(getOneWeekLaterDate());
-  const [challengeCount, setChallengeCount] = useState(5);
+  const [name, setName] = useState('');
+  const [signupDeadline, setSignupDeadline] = useState(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)); // 默认7天后
+  const [campEndDate, setCampEndDate] = useState(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)); // 默认30天后
+  const [challengeCount, setChallengeCount] = useState(3);
   const [minParticipants, setMinParticipants] = useState(5);
-  const [maxParticipants, setMaxParticipants] = useState(20);
-  const [depositAmount, setDepositAmount] = useState('100000000000000000');
-  
-  // 错误状态
-  const [errors, setErrors] = useState({
-    name: '',
-    signupDeadline: '',
-    campEndDate: '',
-    challengeCount: '',
-    minParticipants: '',
-    maxParticipants: '',
-    depositAmount: ''
-  });
-  
-  // 确认弹窗状态
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  
-  // 钱包连接弹窗状态
-  const [showWalletModal, setShowWalletModal] = useState(false);
-  
-  // 检查钱包连接状态，未连接时重定向到首页
-  useEffect(() => {
-    if (!isConnected) {
-      // 如果页面刚加载且钱包未连接，显示钱包连接弹窗
-      setShowWalletModal(true);
-    }
-  }, []);
-  
-  // 监听钱包连接状态变化
-  useEffect(() => {
-    if (!isConnected && showConfirmModal) {
-      // 如果在确认过程中钱包断开，关闭确认弹窗并显示钱包连接弹窗
-      setShowConfirmModal(false);
-      setShowWalletModal(true);
-    }
-  }, [isConnected, showConfirmModal]);
-  
-  // 获取明天日期
-  function getTomorrowDate() {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow;
-  }
-  
-  // 获取一周后日期
-  function getOneWeekLaterDate() {
-    const oneWeekLater = new Date();
-    oneWeekLater.setDate(oneWeekLater.getDate() + 7);
-    return oneWeekLater;
-  }
-  
-  // 格式化日期为YYYY-MM-DD
-  function formatDate(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-  
-  // 格式化WEI显示
-  function formatWei(wei) {
-    return Number(wei).toLocaleString();
-  }
+  const [maxParticipants, setMaxParticipants] = useState(50);
+  const [depositAmount, setDepositAmount] = useState('10000000000000000'); // 默认0.01 ETH，以wei为单位
   
   // 表单验证
+  const [formErrors, setFormErrors] = useState({});
+  const [successMessage, setSuccessMessage] = useState('');
+  
+  // 验证表单
   const validateForm = () => {
-    let isValid = true;
-    const newErrors = {
-      name: '',
-      signupDeadline: '',
-      campEndDate: '',
-      challengeCount: '',
-      minParticipants: '',
-      maxParticipants: '',
-      depositAmount: ''
-    };
+    const errors = {};
     
-    // 验证钱包连接状态
-    if (!isConnected) {
-      setShowWalletModal(true);
-      return false;
+    if (!name.trim()) {
+      errors.name = language === 'zh' ? '营地名称不能为空' : 'Camp name cannot be empty';
     }
     
-    // 验证营地名称
-    if (!campName) {
-      newErrors.name = language === 'zh' ? "营地名称不能为空" : "Camp name is required";
-      isValid = false;
-    } else if (campName.length > 64) {
-      newErrors.name = language === 'zh' ? "名称长度不能超过64个字符" : "Name cannot exceed 64 characters";
-      isValid = false;
-    } else if (/[^a-zA-Z0-9\u4e00-\u9fa5\s]/.test(campName)) {
-      newErrors.name = language === 'zh' ? "名称包含非法字符" : "Name contains invalid characters";
-      isValid = false;
-    }
-    
-    // 验证报名截止日期
     if (!signupDeadline) {
-      newErrors.signupDeadline = language === 'zh' ? "请选择报名截止日期" : "Please select signup deadline";
-      isValid = false;
+      errors.signupDeadline = language === 'zh' ? '报名截止时间不能为空' : 'Signup deadline cannot be empty';
+    } else if (signupDeadline <= new Date()) {
+      errors.signupDeadline = language === 'zh' ? '报名截止时间必须在当前时间之后' : 'Signup deadline must be in the future';
     }
     
-    // 验证结营时间
     if (!campEndDate) {
-      newErrors.campEndDate = language === 'zh' ? "请选择结营时间" : "Please select camp end date";
-      isValid = false;
-    } else if (campEndDate < signupDeadline) {
-      newErrors.campEndDate = language === 'zh' ? "结营时间不能早于报名截止日期" : "End date cannot be earlier than signup deadline";
-      isValid = false;
+      errors.campEndDate = language === 'zh' ? '结营时间不能为空' : 'Camp end date cannot be empty';
+    } else if (campEndDate <= signupDeadline) {
+      errors.campEndDate = language === 'zh' ? '结营时间必须在报名截止时间之后' : 'Camp end date must be after signup deadline';
     }
     
-    // 验证挑战关卡
-    if (!challengeCount || challengeCount < 1) {
-      newErrors.challengeCount = language === 'zh' ? "关卡数量必须大于0" : "Challenge count must be greater than 0";
-      isValid = false;
+    if (challengeCount <= 0 || challengeCount > 10) {
+      errors.challengeCount = language === 'zh' ? '关卡数量必须在1到10之间' : 'Challenge count must be between 1 and 10';
     }
     
-    // 验证参与者数量
-    if (!minParticipants || minParticipants < 1) {
-      newErrors.minParticipants = language === 'zh' ? "最小参与者数量必须大于0" : "Minimum participants must be greater than 0";
-      isValid = false;
+    if (minParticipants <= 0) {
+      errors.minParticipants = language === 'zh' ? '最小参与者数量必须大于0' : 'Minimum participants must be greater than 0';
     }
     
-    if (!maxParticipants || maxParticipants < 1) {
-      newErrors.maxParticipants = language === 'zh' ? "最大参与者数量必须大于0" : "Maximum participants must be greater than 0";
-      isValid = false;
+    if (maxParticipants <= minParticipants) {
+      errors.maxParticipants = language === 'zh' ? '最大参与者数量必须大于最小参与者数量' : 'Maximum participants must be greater than minimum participants';
     }
     
-    if (parseInt(minParticipants) > parseInt(maxParticipants)) {
-      newErrors.minParticipants = language === 'zh' ? "最小值不能大于最大值" : "Minimum cannot be greater than maximum";
-      newErrors.maxParticipants = language === 'zh' ? "最大值不能小于最小值" : "Maximum cannot be less than minimum";
-      isValid = false;
+    if (!depositAmount || isNaN(parseInt(depositAmount)) || parseInt(depositAmount) <= 0) {
+      errors.depositAmount = language === 'zh' ? '押金金额必须大于0' : 'Deposit amount must be greater than 0';
     }
     
-    // 验证押金
-    if (!depositAmount || parseInt(depositAmount) < 1) {
-      newErrors.depositAmount = language === 'zh' ? "押金金额必须大于0" : "Deposit amount must be greater than 0";
-      isValid = false;
-    }
-    
-    setErrors(newErrors);
-    return isValid;
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
   
-  // 提交表单
-  const handleSubmit = () => {
+  // 处理表单提交
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
     if (!isConnected) {
-      setShowWalletModal(true);
+      setFormErrors({ general: language === 'zh' ? '请先连接钱包' : 'Please connect your wallet first' });
       return;
     }
     
-    if (validateForm()) {
-      setShowConfirmModal(true);
-    } else {
-      // 滚动到第一个错误
-      const firstErrorField = Object.keys(errors).find(key => errors[key] !== '');
-      if (firstErrorField) {
-        document.getElementById(firstErrorField)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }
-  };
-  
-  // 确认创建
-  const handleConfirm = async () => {
-    // 再次验证钱包连接状态
-    if (!isConnected) {
-      setShowConfirmModal(false);
-      setShowWalletModal(true);
+    if (!validateForm()) {
       return;
     }
     
     try {
-      // 这里应该是与合约交互的代码
-      // 模拟创建成功后获得的营地ID
-      const campId = `camp-${Date.now()}`;
+      // 准备参数
+      const params = {
+        name,
+        signupDeadline: Math.floor(signupDeadline.getTime() / 1000),
+        campEndDate: Math.floor(campEndDate.getTime() / 1000),
+        challengeCount,
+        minParticipants,
+        maxParticipants,
+        depositAmount: depositAmount // 直接使用wei值
+      };
       
-      alert(language === 'zh' ? '营地创建成功！合约已部署，正在跳转到营地详情...' : 'Camp created successfully! Contract deployed, redirecting to camp details...');
-      // 跳转到营地详情页面，使用正确的路由路径
-      navigate(`/camp/${campId}`);
+      // 调用合约创建营地
+      const result = await createCamp(params);
+      
+      if (result.success) {
+        // 显示成功消息
+        setSuccessMessage(language === 'zh' ? '营地创建成功！正在等待数据同步...' : 'Camp created successfully! Waiting for data sync...');
+        
+        // 等待后端事件处理完成后再跳转
+        const isReady = await waitForCampDataReady(result.campAddress);
+        
+        if (isReady) {
+          // 清除成功消息，避免状态冲突
+          setSuccessMessage('');
+          
+          // 添加短暂延迟，确保状态清理完成
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // 数据同步完成后跳转到营地详情页
+          navigate(`/camp/${result.campAddress}`, { replace: true });
+        } else {
+          // 如果数据同步失败，跳转到个人页面，用户可以在那里找到自己的营地
+          setSuccessMessage('');
+          console.log('数据同步超时，跳转到个人页面');
+          navigate('/personal', { replace: true });
+        }
+      } else {
+        setFormErrors({ 
+          general: language === 'zh' 
+            ? `创建营地失败: ${result.error}` 
+            : `Failed to create camp: ${result.error}` 
+        });
+      }
     } catch (error) {
       console.error('创建营地失败:', error);
+      setSuccessMessage('');
+      setFormErrors({ 
+        general: language === 'zh' 
+          ? `创建营地失败: ${error.message}` 
+          : `Failed to create camp: ${error.message}` 
+      });
     }
   };
   
-  // 连接钱包
-  const handleConnectWallet = async () => {
+  // 返回上一页
+  const handleBack = () => {
+    navigate(-1);
+  };
+
+  // 格式化显示ETH值（用于显示当前设置的押金）
+  const formatWeiToEth = (wei) => {
     try {
-      await connect();
-      setShowWalletModal(false);
+      return ethers.utils.formatEther(wei);
     } catch (error) {
-      console.error('连接钱包失败:', error);
+      return '0';
     }
   };
-  
-  // 页面离开提示
-  useEffect(() => {
-    const handleBeforeUnload = (e) => {
-      // 检查表单是否有数据
-      if (campName || challengeCount !== 5 || minParticipants !== 5 || maxParticipants !== 20 || depositAmount !== '100000000000000000') {
-        e.preventDefault();
-        e.returnValue = '';
-      }
-    };
+
+  // 处理押金输入变化（直接以wei为单位）
+  const handleDepositChange = (e) => {
+    const value = e.target.value.trim();
+    if (value === '' || !isNaN(parseInt(value))) {
+      setDepositAmount(value);
+    }
+  };
+
+  // 等待营地数据在后端准备就绪
+  const waitForCampDataReady = async (campAddress) => {
+    const maxRetries = 5; // 减少重试次数
+    const retryInterval = 1000; // 缩短间隔时间
     
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [campName, challengeCount, minParticipants, maxParticipants, depositAmount]);
-  
-  // 自定义日期选择器样式
-  const CustomDatePickerInput = React.forwardRef(({ value, onClick, placeholder, disabled }, ref) => (
-    <div className="custom-datepicker-wrapper">
-      <input
-        className="form-control"
-        value={value}
-        onClick={onClick}
-        placeholder={placeholder}
-        readOnly
-        disabled={disabled}
-        ref={ref}
-      />
-      <FontAwesomeIcon 
-        icon="calendar-alt" 
-        className="calendar-icon" 
-        onClick={disabled ? undefined : onClick}
-      />
-    </div>
-  ));
+    for (let retryCount = 0; retryCount < maxRetries; retryCount++) {
+      try {
+        // 构建API URL，避免重复的/api路径
+    const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+    const apiUrl = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+        const response = await fetch(`${apiUrl}/camps/${campAddress}`);
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.data) {
+            console.log(`营地数据已准备就绪 (检查 ${retryCount + 1} 次):`, result.data);
+            return true;
+          }
+        }
+        
+        console.log(`营地数据尚未准备就绪，等待中... (检查 ${retryCount + 1}/${maxRetries})`);
+        
+        // 只在不是最后一次重试时等待
+        if (retryCount < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, retryInterval));
+        }
+      } catch (error) {
+        console.warn(`检查营地数据时出错 (尝试 ${retryCount + 1}):`, error);
+        
+        // 只在不是最后一次重试时等待
+        if (retryCount < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, retryInterval));
+        }
+      }
+    }
+    
+    console.log(`在 ${maxRetries} 次重试后，营地数据仍未就绪`);
+    return false;
+  };
   
   return (
     <div className="create-camp-container">
-      {/* 使用全局导航栏组件 */}
+      {/* 注入自定义样式 */}
+      <style>{customDatePickerStyles}</style>
+      
+      {/* 导航栏 */}
       <Navbar />
       
       {/* 主容器 */}
       <div className="container">
+        <button className="back-btn" onClick={handleBack}>
+          <FontAwesomeIcon icon="arrow-left" />
+          {language === 'zh' ? "返回" : "Back"}
+        </button>
+        
         <div className="form-header">
-          <h1>{language === 'zh' ? '创建新营地' : 'Create New Camp'}</h1>
+          <h1>{language === 'zh' ? "创建挑战营地" : "Create Challenge Camp"}</h1>
           <p>
             {language === 'zh' 
-              ? '配置您的挑战营地，设置规则并招募志同道合的伙伴。所有字段均为必填项。' 
-              : 'Configure your challenge camp, set rules and recruit like-minded partners. All fields are required.'}
+              ? "设置您的挑战营地参数，开启一段激动人心的学习旅程" 
+              : "Set up your challenge camp parameters to start an exciting learning journey"}
           </p>
-          
-          {/* 钱包连接状态提示 */}
-          {!isConnected && (
-            <div className="wallet-status-warning">
-              <FontAwesomeIcon icon="exclamation-triangle" />
-              <p>
-                {language === 'zh' 
-                  ? '请先连接钱包，创建营地需要授权操作' 
-                  : 'Please connect your wallet first. Creating a camp requires authorization.'}
-              </p>
-              <button className="connect-wallet-btn" onClick={handleConnectWallet}>
-                {language === 'zh' ? '连接钱包' : 'Connect Wallet'}
-              </button>
-            </div>
-          )}
         </div>
         
-        <form className="camp-form">
-          {/* 营地名称 */}
+        {!isConnected && (
+          <div className="wallet-status-warning">
+            <FontAwesomeIcon icon="exclamation-triangle" />
+            <p>{language === 'zh' ? "请先连接钱包以创建营地" : "Please connect your wallet to create a camp"}</p>
+            <button className="connect-wallet-btn" onClick={() => window.location.reload()}>
+              {language === 'zh' ? "连接钱包" : "Connect Wallet"}
+            </button>
+          </div>
+        )}
+        
+        {error && (
+          <div className="error-alert">
+            <FontAwesomeIcon icon="exclamation-circle" />
+            <p>{error}</p>
+          </div>
+        )}
+        
+        {formErrors.general && (
+          <div className="error-alert">
+            <FontAwesomeIcon icon="exclamation-circle" />
+            <p>{formErrors.general}</p>
+          </div>
+        )}
+        
+        {successMessage && (
+          <div className="success-alert">
+            <FontAwesomeIcon icon="check-circle" />
+            <p>{successMessage}</p>
+            {successMessage.includes('等待数据同步') || successMessage.includes('Waiting for data sync') ? (
+              <div className="loading-spinner" style={{ marginTop: '10px' }}>
+                <div className="spinner"></div>
+                <small style={{ marginLeft: '10px', opacity: 0.8 }}>
+                  {language === 'zh' ? '请耐心等待，这通常需要几秒钟...' : 'Please wait, this usually takes a few seconds...'}
+                </small>
+              </div>
+            ) : null}
+          </div>
+        )}
+        
+        <form className="camp-form" onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="name">
+            <label>
               <FontAwesomeIcon icon="flag" />
-              {language === 'zh' ? '营地名称' : 'Camp Name'}
+              {language === 'zh' ? "营地名称" : "Camp Name"}
             </label>
-            <input 
-              type="text" 
-              id="name" 
-              className={`form-control ${errors.name ? 'invalid' : ''}`} 
-              placeholder={language === 'zh' ? '输入营地名称（最多64个字符）' : 'Enter camp name (max 64 characters)'}
-              value={campName}
-              onChange={(e) => setCampName(e.target.value)}
-              disabled={!isConnected}
+            <input
+              type="text"
+              className={`form-control ${formErrors.name ? 'invalid' : ''}`}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              placeholder={language === 'zh' ? "输入营地名称" : "Enter camp name"}
+              disabled={loading}
+              required
             />
-            <div className="error-message">{errors.name}</div>
+            {formErrors.name && <div className="error-message">{formErrors.name}</div>}
           </div>
           
-          {/* 日期选择器 - 报名截止日期 */}
           <div className="form-group">
-            <label htmlFor="signupDeadline">
+            <label>
               <FontAwesomeIcon icon="calendar-alt" />
-              {language === 'zh' ? '报名截止日期' : 'Signup Deadline'}
+              {language === 'zh' ? "报名截止时间" : "Signup Deadline"}
             </label>
-            <DatePicker
-              id="signupDeadline"
-              selected={signupDeadline}
-              onChange={(date) => setSignupDeadline(date)}
-              minDate={new Date()}
-              dateFormat="yyyy-MM-dd"
-              className={errors.signupDeadline ? 'invalid' : ''}
-              disabled={!isConnected}
-              customInput={
-                <CustomDatePickerInput 
-                  placeholder={language === 'zh' ? '选择报名截止日期' : 'Select signup deadline'}
-                  disabled={!isConnected}
-                />
-              }
-            />
-            <div className="error-message">{errors.signupDeadline}</div>
+            <div className="custom-datepicker-wrapper">
+              <DatePicker
+                selected={signupDeadline}
+                onChange={(date) => setSignupDeadline(date)}
+                showTimeSelect
+                timeFormat="HH:mm"
+                timeIntervals={15}
+                timeCaption={language === 'zh' ? "时间" : "Time"}
+                dateFormat={language === 'zh' ? "yyyy年MM月dd日 HH:mm" : "MMMM d, yyyy h:mm aa"}
+                className={`form-control ${formErrors.signupDeadline ? 'invalid' : ''}`}
+                disabled={loading}
+              />
+              <FontAwesomeIcon icon="calendar-alt" className="calendar-icon" />
+            </div>
+            {formErrors.signupDeadline && <div className="error-message">{formErrors.signupDeadline}</div>}
           </div>
           
-          {/* 日期选择器 - 结营时间 */}
           <div className="form-group">
-            <label htmlFor="campEndDate">
+            <label>
               <FontAwesomeIcon icon="calendar-check" />
-              {language === 'zh' ? '结营时间' : 'Camp End Date'}
+              {language === 'zh' ? "结营时间" : "Camp End Date"}
             </label>
-            <DatePicker
-              id="campEndDate"
-              selected={campEndDate}
-              onChange={(date) => setCampEndDate(date)}
-              minDate={signupDeadline}
-              dateFormat="yyyy-MM-dd"
-              className={errors.campEndDate ? 'invalid' : ''}
-              disabled={!isConnected}
-              customInput={
-                <CustomDatePickerInput 
-                  placeholder={language === 'zh' ? '选择结营时间' : 'Select camp end date'}
-                  disabled={!isConnected}
-                />
-              }
-            />
-            <div className="error-message">{errors.campEndDate}</div>
+            <div className="custom-datepicker-wrapper">
+              <DatePicker
+                selected={campEndDate}
+                onChange={(date) => setCampEndDate(date)}
+                showTimeSelect
+                timeFormat="HH:mm"
+                timeIntervals={15}
+                timeCaption={language === 'zh' ? "时间" : "Time"}
+                dateFormat={language === 'zh' ? "yyyy年MM月dd日 HH:mm" : "MMMM d, yyyy h:mm aa"}
+                className={`form-control ${formErrors.campEndDate ? 'invalid' : ''}`}
+                      disabled={loading}
+              />
+              <FontAwesomeIcon icon="calendar-alt" className="calendar-icon" />
+            </div>
+            {formErrors.campEndDate && <div className="error-message">{formErrors.campEndDate}</div>}
           </div>
-          
-          {/* 挑战关卡总数 */}
+            
           <div className="form-group">
-            <label htmlFor="challengeCount">
+            <label>
               <FontAwesomeIcon icon="mountain" />
-              {language === 'zh' ? '挑战关卡总数' : 'Challenge Count'}
+              {language === 'zh' ? "关卡数量" : "Challenge Count"}
             </label>
-            <input 
-              type="number" 
-              id="challengeCount" 
-              className={`form-control ${errors.challengeCount ? 'invalid' : ''}`} 
-              placeholder={language === 'zh' ? '输入关卡数量' : 'Enter challenge count'}
-              min="1" 
+            <input
+              type="number"
+              className={`form-control ${formErrors.challengeCount ? 'invalid' : ''}`}
               value={challengeCount}
-              onChange={(e) => setChallengeCount(e.target.value)}
-              disabled={!isConnected}
+              onChange={(e) => setChallengeCount(parseInt(e.target.value) || 0)}
+              min="1"
+              max="10"
+              disabled={loading}
+              required
             />
-            <div className="error-message">{errors.challengeCount}</div>
+            {formErrors.challengeCount && <div className="error-message">{formErrors.challengeCount}</div>}
           </div>
           
-          {/* 参与者数量范围 */}
           <div className="range-container">
             <div className="form-group">
-              <label htmlFor="minParticipants">
+              <label>
                 <FontAwesomeIcon icon="users" />
-                {language === 'zh' ? '最小参与者数量' : 'Min Participants'}
+                {language === 'zh' ? "最小参与者数量" : "Minimum Participants"}
               </label>
-              <input 
-                type="number" 
-                id="minParticipants" 
-                className={`form-control ${errors.minParticipants ? 'invalid' : ''}`} 
-                placeholder={language === 'zh' ? '最小值' : 'Minimum'}
-                min="1" 
+              <input
+                type="number"
+                className={`form-control ${formErrors.minParticipants ? 'invalid' : ''}`}
                 value={minParticipants}
-                onChange={(e) => setMinParticipants(e.target.value)}
-                disabled={!isConnected}
+                onChange={(e) => setMinParticipants(parseInt(e.target.value) || 0)}
+                min="1"
+                disabled={loading}
+                required
               />
-              <div className="error-message">{errors.minParticipants}</div>
+              {formErrors.minParticipants && <div className="error-message">{formErrors.minParticipants}</div>}
             </div>
             
             <div className="form-group">
-              <label htmlFor="maxParticipants">
+              <label>
                 <FontAwesomeIcon icon="users" />
-                {language === 'zh' ? '最大参与者数量' : 'Max Participants'}
+                {language === 'zh' ? "最大参与者数量" : "Maximum Participants"}
               </label>
-              <input 
-                type="number" 
-                id="maxParticipants" 
-                className={`form-control ${errors.maxParticipants ? 'invalid' : ''}`} 
-                placeholder={language === 'zh' ? '最大值' : 'Maximum'}
-                min="1" 
+              <input
+                type="number"
+                className={`form-control ${formErrors.maxParticipants ? 'invalid' : ''}`}
                 value={maxParticipants}
-                onChange={(e) => setMaxParticipants(e.target.value)}
-                disabled={!isConnected}
+                onChange={(e) => setMaxParticipants(parseInt(e.target.value) || 0)}
+                min="1"
+                disabled={loading}
+                required
               />
-              <div className="error-message">{errors.maxParticipants}</div>
+              {formErrors.maxParticipants && <div className="error-message">{formErrors.maxParticipants}</div>}
             </div>
           </div>
-          
-          {/* 预付押金金额 */}
+            
           <div className="form-group">
-            <label htmlFor="depositAmount">
+            <label>
               <FontAwesomeIcon icon="coins" />
-              {language === 'zh' ? '预付押金金额 (WEI)' : 'Deposit Amount (WEI)'}
+              {language === 'zh' ? "押金金额 (" : "Deposit Amount ("}
+              <span className="wei-unit">WEI</span>
+              {")"}
             </label>
-            <input 
-              type="text" 
-              id="depositAmount" 
-              className={`form-control ${errors.depositAmount ? 'invalid' : ''}`} 
-              placeholder={language === 'zh' ? '输入押金金额' : 'Enter deposit amount'}
-              value={depositAmount}
-              onChange={(e) => setDepositAmount(e.target.value)}
-              disabled={!isConnected}
+            <input
+              type="text"
+              className={`form-control ${formErrors.depositAmount ? 'invalid' : ''}`}
+                value={depositAmount}
+              onChange={handleDepositChange}
+              placeholder={language === 'zh' ? "输入押金金额 (WEI)" : "Enter deposit amount (WEI)"}
+                disabled={loading}
+                required
             />
-            <div className="error-message">{errors.depositAmount}</div>
+            {depositAmount && !isNaN(parseInt(depositAmount)) && (
+              <div className="deposit-info">
+                {language === 'zh' ? "约等于 " : "Approximately "} 
+                {formatWeiToEth(depositAmount)} ETH
+              </div>
+            )}
+            <div className="deposit-note">
+              {language === 'zh' 
+                ? "注意：押金金额以 WEI 为单位，1 ETH = 10^18 WEI" 
+                : "Note: Deposit amount is in WEI units, 1 ETH = 10^18 WEI"}
+            </div>
+            {formErrors.depositAmount && <div className="error-message">{formErrors.depositAmount}</div>}
           </div>
           
-          {/* 提交按钮 - 与首页方形按钮保持一致 */}
           <div className="submit-btn-container">
             <button 
-              type="button" 
-              className={`square-btn left ${!isConnected ? 'disabled' : ''}`} 
-              onClick={handleSubmit}
-              disabled={!isConnected}
-            >
-              <div className="icon">
-                <FontAwesomeIcon icon={isConnected ? "check-circle" : "lock"} />
-              </div>
-              <h2>
-                {isConnected 
-                  ? (language === 'zh' ? '确认创建' : 'Create Camp')
-                  : (language === 'zh' ? '需要连接钱包' : 'Wallet Required')}
-              </h2>
+                  type="submit"
+              className={`submit-btn ${(loading || !isConnected) ? 'disabled' : ''}`}
+                  disabled={loading || !isConnected}
+                >
+              {loading ? (
+                <div className="loading-spinner"></div>
+              ) : (
+                <>
+                  <FontAwesomeIcon icon="flag" />
+                  <span>{language === 'zh' ? "创建营地" : "Create Camp"}</span>
+                </>
+              )}
             </button>
           </div>
         </form>
-      </div>
-      
-      {/* 确认弹窗 - 与首页钱包弹窗保持一致 */}
-      <div className={`wallet-modal ${showConfirmModal ? 'active' : ''}`}>
-        <div className="modal-content">
-          <h2>{language === 'zh' ? '确认营地信息' : 'Confirm Camp Info'}</h2>
-          <p>
-            {language === 'zh' 
-              ? '请仔细检查营地配置信息，确认无误后提交到区块链' 
-              : 'Please check the camp configuration carefully before submitting to blockchain'}
-          </p>
-          
-          {/* 显示创建者钱包地址 */}
-          <div className="creator-info">
-            <span>{language === 'zh' ? '创建者钱包地址:' : 'Creator Address:'}</span>
-            <span>{account}</span>
-          </div>
-          
-          <div className="camp-details">
-            <div>
-              <span>{language === 'zh' ? '营地名称:' : 'Camp Name:'}</span>
-              <span>{campName}</span>
-            </div>
-            <div>
-              <span>{language === 'zh' ? '报名截止:' : 'Signup Deadline:'}</span>
-              <span>{signupDeadline.toLocaleDateString()}</span>
-            </div>
-            <div>
-              <span>{language === 'zh' ? '结营时间:' : 'End Date:'}</span>
-              <span>{campEndDate.toLocaleDateString()}</span>
-            </div>
-            <div>
-              <span>{language === 'zh' ? '挑战关卡:' : 'Challenges:'}</span>
-              <span>{challengeCount} {language === 'zh' ? '关' : ''}</span>
-            </div>
-            <div>
-              <span>{language === 'zh' ? '参与者数量:' : 'Participants:'}</span>
-              <span>{minParticipants} - {maxParticipants} {language === 'zh' ? '人' : ''}</span>
-            </div>
-            <div>
-              <span>{language === 'zh' ? '押金金额:' : 'Deposit:'}</span>
-              <span>{formatWei(depositAmount)} WEI</span>
-            </div>
-          </div>
-          
-          <div className="modal-buttons">
-            <button 
-              className="cancel-btn" 
-              onClick={() => setShowConfirmModal(false)}
-            >
-              {language === 'zh' ? '取消' : 'Cancel'}
-            </button>
-            <button 
-              className="close-btn" 
-              onClick={handleConfirm}
-            >
-              {language === 'zh' ? '确认创建' : 'Confirm'}
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      {/* 钱包连接弹窗 */}
-      <div className={`wallet-modal ${showWalletModal ? 'active' : ''}`}>
-        <div className="modal-content">
-          <h2>{language === 'zh' ? '需要连接钱包' : 'Wallet Required'}</h2>
-          <p>
-            {language === 'zh' 
-              ? '创建营地需要连接钱包进行授权，请先连接您的钱包' 
-              : 'Creating a camp requires wallet authorization. Please connect your wallet first.'}
-          </p>
-          
-          <div className="wallet-options">
-            <div className="wallet-option" onClick={handleConnectWallet}>
-              <FontAwesomeIcon icon={["fab", "ethereum"]} />
-              <h3>MetaMask</h3>
-            </div>
-            <div className="wallet-option" onClick={handleConnectWallet}>
-              <FontAwesomeIcon icon="wallet" />
-              <h3>WalletConnect</h3>
-            </div>
-          </div>
-          
-          <div className="modal-buttons">
-            <button 
-              className="cancel-btn" 
-              onClick={() => {
-                setShowWalletModal(false);
-                navigate('/');
-              }}
-            >
-              {language === 'zh' ? '返回首页' : 'Back to Home'}
-            </button>
-            <button 
-              className="close-btn" 
-              onClick={() => setShowWalletModal(false)}
-            >
-              {language === 'zh' ? '稍后连接' : 'Connect Later'}
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );

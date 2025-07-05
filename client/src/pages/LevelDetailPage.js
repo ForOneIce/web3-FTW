@@ -21,7 +21,7 @@ library.add(
 const LevelDetailPage = () => {
   const { campId } = useParams();
   const navigate = useNavigate();
-  const { isConnected, address } = useWeb3();
+  const { isConnected, address, submitChallengePassword } = useWeb3();
   const { language } = useLanguage();
   
   // 状态
@@ -38,100 +38,144 @@ const LevelDetailPage = () => {
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
-  // 模拟数据
+  // 获取真实数据
   useEffect(() => {
     const fetchLevelData = async () => {
       try {
         setLoading(true);
         
-        // 模拟API调用延迟
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        if (!campId) {
+          throw new Error(language === 'zh' ? "营地ID无效" : "Invalid camp ID");
+        }
+
+        // 构建API URL，避免重复的/api路径
+    const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+    const apiUrl = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
         
-        // 模拟营地数据
-        const mockCampData = {
-          id: campId || "camp-001",
-          name: language === 'zh' ? "Web3开发者训练营" : "Web3 Developer Camp",
-          totalLevels: 15,
-          currentLevelIndex: 3, // 当前进行到第3关
-          contract: "0x7b2F9a1B3cD45e67fE8c4d8c6b7a89c4D19eA3",
-          creator: "0x8a3F2b1cD45e67fE8c4d8c6b7a89c4D1"
+        // 获取营地数据
+        const campResponse = await fetch(`${apiUrl}/camps/${campId}`);
+        if (!campResponse.ok) {
+          throw new Error(language === 'zh' ? "获取营地数据失败" : "Failed to get camp data");
+        }
+        
+        const campResult = await campResponse.json();
+        if (!campResult.success || !campResult.data) {
+          throw new Error(language === 'zh' ? "营地数据无效" : "Invalid camp data");
+        }
+        
+        const campData = campResult.data;
+        const formattedCamp = {
+          id: campData.contract_address,
+          name: campData.name,
+          totalLevels: campData.challenge_count,
+          currentLevelIndex: campData.current_level || 1,
+          contract: campData.contract_address,
+          creator: campData.organizer_address,
+          status: campData.state
         };
         
-        // 生成关卡数据
-        const mockLevels = [];
-        for (let i = 1; i <= mockCampData.totalLevels; i++) {
-          // 计算截止日期 - 每周一个关卡
-          const baseDate = new Date('2025-09-15');
-          baseDate.setDate(baseDate.getDate() + (i * 7));
-          const deadline = baseDate.toISOString().split('T')[0];
-          
-          // 计算剩余天数
-          const today = new Date();
-          const deadlineDate = new Date(deadline);
-          const diffTime = deadlineDate - today;
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          
-          // 关卡状态
-          let status = 'pending'; // 待解锁
-          let passedCount = 0;
-          
-          if (i < mockCampData.currentLevelIndex) {
-            status = 'completed'; // 已完成
-            passedCount = Math.floor(Math.random() * 5) + 8; // 8-12人通过
-          } else if (i === mockCampData.currentLevelIndex) {
-            status = 'active'; // 当前关卡
-            passedCount = 3; // 当前关卡3人通过
+        // 获取关卡数据
+        const challengesResponse = await fetch(`${apiUrl}/camps/${campId}/challenges`);
+        let challenges = [];
+        if (challengesResponse.ok) {
+          const challengesResult = await challengesResponse.json();
+          if (challengesResult.success && challengesResult.data) {
+            challenges = challengesResult.data;
+            console.log('获取到关卡数据:', challenges);
+          } else {
+            console.log('关卡数据为空或无效:', challengesResult);
           }
-          
-          mockLevels.push({
-            id: `level-${i}`,
-            number: i,
-            deadline: deadline,
-            remainingDays: diffDays,
-            status: status,
-            passedCount: passedCount,
-            totalParticipants: 12
-          });
+        } else {
+          console.log('获取关卡数据失败:', challengesResponse.status, challengesResponse.statusText);
         }
         
-        // 模拟参与者数据
-        const participantNames = [
-          "区块链探索者", "智能合约大师", "去中心化先锋", "Web3开发者", 
-          "加密艺术家", "共识算法研究员", "DeFi专家", "NFT收藏家", 
-          "DAO架构师", "零知识证明专家", "链上数据分析师", "元宇宙建造师"
-        ];
-        
-        const mockParticipants = [];
-        for (let i = 0; i < 12; i++) {
-          const randomAddr = `0x${Math.random().toString(16).substring(2, 10)}${Math.random().toString(16).substring(2, 10)}`;
+        // 格式化关卡数据
+        const formattedLevels = [];
+        for (let i = 1; i <= formattedCamp.totalLevels; i++) {
+          const challenge = challenges.find(c => c.challenge_index === i - 1);
           
-          mockParticipants.push({
-            id: `p${i+1}`,
-            name: participantNames[i],
-            address: randomAddr,
-            completed: i < 3 // 前3个已完成当前关卡
-          });
+          if (challenge) {
+            const deadline = new Date(challenge.deadline * 1000);
+            const today = new Date();
+            const diffTime = deadline.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            let status = 'pending';
+            if (i < formattedCamp.currentLevelIndex) {
+              status = 'completed';
+            } else if (i === formattedCamp.currentLevelIndex) {
+              status = 'active';
+            }
+            
+            formattedLevels.push({
+              id: `level-${i}`,
+              number: i,
+              deadline: deadline.toISOString().split('T')[0],
+              remainingDays: diffDays,
+              status: status,
+              passedCount: challenge.completed_count || 0,
+              totalParticipants: campData.participant_count || 0,
+              challengeId: challenge.id
+            });
+          } else {
+            // 如果关卡还未配置，创建占位数据
+            formattedLevels.push({
+              id: `level-${i}`,
+              number: i,
+              deadline: '未配置',
+              remainingDays: 0,
+              status: 'pending',
+              passedCount: 0,
+              totalParticipants: campData.participant_count || 0,
+              challengeId: null
+            });
+          }
         }
         
-        // 设置加载的数据
-        setCamp(mockCampData);
-        setLevels(mockLevels);
-        setCurrentLevel(mockLevels.find(l => l.number === mockCampData.currentLevelIndex));
-        setParticipants(mockParticipants);
+        // 获取参与者数据
+        const participantsResponse = await fetch(`${apiUrl}/camps/${campId}/participants`);
+        let participants = [];
+        if (participantsResponse.ok) {
+          const participantsResult = await participantsResponse.json();
+          if (participantsResult.success && participantsResult.data) {
+            participants = participantsResult.data.map((p, index) => ({
+              id: `p${index + 1}`,
+              name: language === 'zh' ? `参与者 ${index + 1}` : `Participant ${index + 1}`,
+              address: p.participant_address,
+              completed: p.completed_challenges >= formattedCamp.currentLevelIndex,
+              completedChallenges: p.completed_challenges || 0
+            }));
+          }
+        }
         
-        // 模拟是否为创建者
-        setIsCreator(address && mockCampData.creator.toLowerCase() === address.toLowerCase());
+        // 设置数据
+        setCamp(formattedCamp);
+        setLevels(formattedLevels);
+        setCurrentLevel(formattedLevels.find(l => l.number === formattedCamp.currentLevelIndex));
+        setParticipants(participants);
         
-        // 模拟是否已参加
-        setHasJoined(true); // 假设已参加
+        // 检查是否为创建者
+        setIsCreator(address && formattedCamp.creator.toLowerCase() === address.toLowerCase());
         
-        // 模拟已完成的关卡
-        setCompletedLevels([1, 2]); // 已完成第1和第2关
+        // 检查是否已参加
+        const userParticipant = participants.find(p => 
+          address && p.address.toLowerCase() === address.toLowerCase()
+        );
+        setHasJoined(!!userParticipant);
+        
+        // 获取用户已完成的关卡
+        if (userParticipant) {
+          const userCompletedLevels = [];
+          for (let i = 1; i <= userParticipant.completedChallenges; i++) {
+            userCompletedLevels.push(i);
+          }
+          setCompletedLevels(userCompletedLevels);
+        }
         
         setLoading(false);
       } catch (err) {
         console.error("获取关卡数据错误:", err);
-        setError("获取数据失败，请稍后重试");
+        setError(err.message || (language === 'zh' ? "获取数据失败，请稍后重试" : "Failed to get data, please try again"));
         setLoading(false);
       }
     };
@@ -171,34 +215,67 @@ const LevelDetailPage = () => {
       return;
     }
     
+    if (!isConnected) {
+      setPasswordError(language === 'zh' ? "请先连接钱包" : "Please connect wallet first");
+      return;
+    }
+    
+    if (!currentLevel) {
+      setPasswordError(language === 'zh' ? "当前关卡数据无效" : "Current level data is invalid");
+      return;
+    }
+    
     try {
-      // 模拟验证过程
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // 调用智能合约提交密码
+      const challengeIndex = currentLevel.number - 1; // 合约中关卡索引从0开始
       
-      // 模拟验证成功
-      closeModal();
+      const result = await submitChallengePassword(camp.id, challengeIndex, passwordInput);
       
-      // 更新已完成关卡
-      if (currentLevel && !completedLevels.includes(currentLevel.number)) {
-        setCompletedLevels([...completedLevels, currentLevel.number]);
-      }
-      
-      // 更新参与者状态
-      const updatedParticipants = participants.map(p => {
-        if (address && p.address.toLowerCase() === address.toLowerCase()) {
-          return { ...p, completed: true };
+      if (result.success) {
+        closeModal();
+        
+        // 更新已完成关卡
+        if (!completedLevels.includes(currentLevel.number)) {
+          setCompletedLevels([...completedLevels, currentLevel.number]);
         }
-        return p;
-      });
-      setParticipants(updatedParticipants);
-      
-      // 显示成功弹窗
-      setTimeout(() => {
-        openModal('success');
-      }, 500);
+        
+        // 更新参与者状态
+        const updatedParticipants = participants.map(p => {
+          if (address && p.address.toLowerCase() === address.toLowerCase()) {
+            return { ...p, completed: true };
+          }
+          return p;
+        });
+        setParticipants(updatedParticipants);
+        
+        // 显示成功弹窗
+        setTimeout(() => {
+          openModal('success');
+        }, 500);
+      } else {
+        throw new Error(result.error || result.message || '提交失败');
+      }
     } catch (err) {
       console.error("验证密文错误:", err);
-      setPasswordError(language === 'zh' ? "验证失败，请检查密文是否正确" : "Verification failed, please check your password");
+      
+      // 解析错误信息，提供更友好的提示
+      let errorMessage = err.message;
+      
+      if (errorMessage.includes('Incorrect password')) {
+        errorMessage = language === 'zh' ? "通关密文错误" : "Incorrect password";
+      } else if (errorMessage.includes('Challenge already completed')) {
+        errorMessage = language === 'zh' ? "您已经通过此关卡" : "You have already completed this challenge";
+      } else if (errorMessage.includes('Challenge deadline has passed')) {
+        errorMessage = language === 'zh' ? "关卡截止时间已过" : "Challenge deadline has passed";
+      } else if (errorMessage.includes('Challenge is not active')) {
+        errorMessage = language === 'zh' ? "关卡未激活" : "Challenge is not active";
+      } else if (errorMessage.includes('Not registered')) {
+        errorMessage = language === 'zh' ? "您未报名此营地" : "You are not registered for this camp";
+      } else if (errorMessage.includes('Camp is not in challenging state')) {
+        errorMessage = language === 'zh' ? "营地当前不在闯关状态" : "Camp is not in challenging state";
+      }
+      
+      setPasswordError(errorMessage);
     }
   };
 

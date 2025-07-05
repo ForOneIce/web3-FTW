@@ -12,138 +12,22 @@ import {
   faUser,
   faFlag,
   faSignInAlt,
-  faCampground
+  faCampground,
+  faSpinner
 } from '@fortawesome/free-solid-svg-icons';
 import '../styles/Personal.scss';
 
-// 模拟营地数据 - 后续将从合约获取
-const mockCampsData = [
-  // 用户创建的营地
-  {
-    id: "camp1",
-    name: "Web3开发者训练营",
-    status: "running",
-    signupDeadline: "2023-10-10",
-    challenges: 15,
-    participants: 12,
-    date: "2023-09-25",
-    type: "created"
-  },
-  {
-    id: "camp2",
-    name: "Solidity智能合约大师班",
-    status: "signup",
-    signupDeadline: "2023-12-20",
-    challenges: 20,
-    participants: 5,
-    date: "2023-12-01",
-    type: "created"
-  },
-  {
-    id: "camp3",
-    name: "NFT创作与发行训练营",
-    status: "completed",
-    signupDeadline: "2023-09-30",
-    challenges: 10,
-    participants: 3,
-    date: "2023-09-15",
-    type: "created"
-  },
-  
-  // 用户参与的营地
-  {
-    id: "camp4",
-    name: "区块链安全攻防训练营",
-    status: "running",
-    signupDeadline: "2023-11-15",
-    challenges: 12,
-    participants: 18,
-    date: "2023-10-20",
-    type: "participated"
-  },
-  {
-    id: "camp5",
-    name: "DeFi协议开发实战",
-    status: "success",
-    signupDeadline: "2023-12-01",
-    challenges: 18,
-    participants: 8,
-    date: "2023-11-05",
-    type: "participated"
-  },
-  {
-    id: "camp6",
-    name: "DAO组织治理与管理",
-    status: "completed",
-    signupDeadline: "2023-08-25",
-    challenges: 8,
-    participants: 15,
-    date: "2023-08-10",
-    type: "participated"
-  },
-  {
-    id: "camp7",
-    name: "零知识证明入门与实践",
-    status: "running",
-    signupDeadline: "2023-11-30",
-    challenges: 25,
-    participants: 22,
-    date: "2023-11-10",
-    type: "participated"
-  },
-  {
-    id: "camp8",
-    name: "元宇宙开发入门",
-    status: "signup",
-    signupDeadline: "2024-01-15",
-    challenges: 14,
-    participants: 7,
-    date: "2023-12-25",
-    type: "participated"
-  },
-  
-  // 可参与的营地
-  {
-    id: "camp9",
-    name: "Web3全栈开发训练营",
-    status: "signup",
-    signupDeadline: "2024-01-15",
-    challenges: 30,
-    participants: 7,
-    date: "2023-12-25",
-    type: "available"
-  },
-  {
-    id: "camp10",
-    name: "智能合约安全审计",
-    status: "signup",
-    signupDeadline: "2023-12-30",
-    challenges: 12,
-    participants: 9,
-    date: "2023-12-10",
-    type: "available"
-  },
-  {
-    id: "camp11",
-    name: "DApp开发实战",
-    status: "signup",
-    signupDeadline: "2024-01-10",
-    challenges: 18,
-    participants: 12,
-    date: "2023-12-20",
-    type: "available"
-  },
-  {
-    id: "camp12",
-    name: "区块链游戏开发",
-    status: "signup",
-    signupDeadline: "2024-01-20",
-    challenges: 22,
-    participants: 5,
-    date: "2023-12-28",
-    type: "available"
+// 状态映射函数
+const getStatusFromState = (state) => {
+  switch (state) {
+    case 0: return 'signup';      // 报名阶段
+    case 1: return 'failed';      // 开营失败
+    case 2: return 'success';     // 开营成功
+    case 3: return 'running';     // 闯关阶段
+    case 4: return 'completed';   // 已结营
+    default: return 'signup';
   }
-];
+};
 
 const PersonalPage = () => {
   const navigate = useNavigate();
@@ -153,6 +37,8 @@ const PersonalPage = () => {
   const [activeTab, setActiveTab] = useState('created');
   const [campsData, setCampsData] = useState([]);
   const [filteredCamps, setFilteredCamps] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // 状态图标映射
   const statusIconMap = {
@@ -172,13 +58,122 @@ const PersonalPage = () => {
     "completed": language === 'zh' ? "已结营" : "Completed"
   };
 
+  // 从后端API获取营地数据
+  const fetchCampsData = async () => {
+    if (!account) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // 构建API URL，避免重复的/api路径
+    const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+    const apiUrl = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+      
+      // 并行获取三种类型的营地数据
+      const [createdResponse, participatedResponse, availableResponse] = await Promise.all([
+        fetch(`${apiUrl}/camps/organizer/${account}`),
+        fetch(`${apiUrl}/camps/participant/${account}`),
+        fetch(`${apiUrl}/camps/available/${account}`)
+      ]);
+
+      const [createdResult, participatedResult, availableResult] = await Promise.all([
+        createdResponse.json(),
+        participatedResponse.json(),
+        availableResponse.json()
+      ]);
+
+      console.log('获取到的营地数据:', { createdResult, participatedResult, availableResult });
+
+      // 转换数据格式
+      const allCamps = [];
+      
+      // 用户创建的营地
+      if (createdResult.success && createdResult.data) {
+        createdResult.data.forEach(camp => {
+          allCamps.push({
+            id: camp.contract_address,
+            name: camp.name,
+            status: getStatusFromState(camp.state),
+            signupDeadline: new Date(camp.signup_deadline * 1000).toISOString().split('T')[0],
+            challenges: camp.challenge_count,
+            participants: camp.participant_count || 0,
+            date: new Date(camp.created_at * 1000).toISOString().split('T')[0],
+            type: 'created'
+          });
+        });
+      }
+
+      // 用户参与的营地
+      if (participatedResult.success && participatedResult.data) {
+        participatedResult.data.forEach(camp => {
+          allCamps.push({
+            id: camp.contract_address,
+            name: camp.name,
+            status: getStatusFromState(camp.state),
+            signupDeadline: new Date(camp.signup_deadline * 1000).toISOString().split('T')[0],
+            challenges: camp.challenge_count,
+            participants: camp.participant_count || 0,
+            date: new Date(camp.created_at * 1000).toISOString().split('T')[0],
+            type: 'participated'
+          });
+        });
+      }
+
+      // 可参与的营地
+      if (availableResult.success && availableResult.data) {
+        availableResult.data.forEach(camp => {
+          allCamps.push({
+            id: camp.contract_address,
+            name: camp.name,
+            status: getStatusFromState(camp.state),
+            signupDeadline: new Date(camp.signup_deadline * 1000).toISOString().split('T')[0],
+            challenges: camp.challenge_count,
+            participants: camp.participant_count || 0,
+            date: new Date(camp.created_at * 1000).toISOString().split('T')[0],
+            type: 'available'
+          });
+        });
+      }
+
+      // 数据清洗与去重
+      const campMap = new Map();
+      allCamps.forEach(camp => {
+        if (!campMap.has(camp.id)) {
+          campMap.set(camp.id, camp);
+        } else {
+          const existingCamp = campMap.get(camp.id);
+          // 优先保留 'created' 和 'participated' 类型
+          if (camp.type === 'created') {
+            campMap.set(camp.id, camp);
+          } else if (camp.type === 'participated' && existingCamp.type !== 'created') {
+            campMap.set(camp.id, camp);
+          }
+        }
+      });
+
+      const uniqueCamps = Array.from(campMap.values());
+      setCampsData(uniqueCamps);
+    } catch (error) {
+      console.error('获取营地数据失败:', error);
+      setError(error.message);
+      setCampsData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 初始化加载营地数据
   useEffect(() => {
-    // 这里将来会从合约获取数据
-    // 目前使用模拟数据
-    setCampsData(mockCampsData);
-    filterCamps(activeTab);
-  }, []);
+    if (isConnected && account) {
+      fetchCampsData();
+    } else {
+      setLoading(false);
+    }
+  }, [isConnected, account]);
 
   // 当activeTab变化时，过滤营地
   useEffect(() => {
@@ -302,7 +297,30 @@ const PersonalPage = () => {
         
         {/* 营地卡片网格 */}
         <div className="camps-grid">
-          {filteredCamps.length === 0 ? (
+          {!isConnected ? (
+            <div className="empty-state">
+              <FontAwesomeIcon icon={faUser} />
+              <h3>{language === 'zh' ? "请先连接钱包" : "Please connect your wallet"}</h3>
+              <p>{language === 'zh' ? "连接钱包后查看您的营地信息" : "Connect your wallet to view your camp information"}</p>
+              <button className="connect-btn" onClick={connectWallet}>
+                {language === 'zh' ? "连接钱包" : "Connect Wallet"}
+              </button>
+            </div>
+          ) : loading ? (
+            <div className="loading-state">
+              <FontAwesomeIcon icon={faSpinner} className="loading-spinner" />
+              <h3>{language === 'zh' ? "正在加载营地数据..." : "Loading camps data..."}</h3>
+            </div>
+          ) : error ? (
+            <div className="error-state">
+              <FontAwesomeIcon icon={faTimesCircle} />
+              <h3>{language === 'zh' ? "加载失败" : "Loading Failed"}</h3>
+              <p>{error}</p>
+              <button className="retry-btn" onClick={fetchCampsData}>
+                {language === 'zh' ? "重试" : "Retry"}
+              </button>
+            </div>
+          ) : filteredCamps.length === 0 ? (
             <div className="empty-state">
               <FontAwesomeIcon icon={faCampground} />
               <h3>{language === 'zh' ? "没有找到营地" : "No camps found"}</h3>

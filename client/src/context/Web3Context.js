@@ -1,142 +1,92 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { connectWallet, checkWalletConnection, setupWalletListeners } from '../utils/web3';
+// 这是一个桥接文件，重新导出复数形式的 Web3Context
+// 所有导入单数形式 '../context/Web3Context' 的文件都会使用复数形式的 Web3Context
 
-// 创建上下文
-const Web3Context = createContext();
+import React from 'react';
+import { Web3Provider as OriginalWeb3Provider, useWeb3 as originalUseWeb3 } from '../contexts/Web3Context';
+import { ethers } from 'ethers';
+import CampImplementation from '../abis/CampImplementation.json';
 
-// 上下文提供者组件
+// 适配层，将 connectWallet 映射为 connect
 export const Web3Provider = ({ children }) => {
-  const [walletData, setWalletData] = useState({
-    address: '',
-    signer: null,
-    networkId: null,
-    isConnected: false,
-    isLoading: true,
-    error: null
-  });
-
-  // 初始化时检查钱包连接状态
-  useEffect(() => {
-    const checkConnection = async () => {
-      try {
-        const connection = await checkWalletConnection();
-        setWalletData(prev => ({ 
-          ...prev, 
-          ...connection, 
-          isLoading: false 
-        }));
-      } catch (error) {
-        setWalletData(prev => ({ 
-          ...prev, 
-          isLoading: false, 
-          error: error.message
-        }));
-      }
-    };
-
-    checkConnection();
-  }, []);
-
-  // 设置钱包事件监听器
-  useEffect(() => {
-    const handleAccountsChanged = (accounts) => {
-      if (accounts.length === 0) {
-        // 用户断开了连接
-        setWalletData({
-          address: '',
-          signer: null,
-          networkId: null,
-          isConnected: false,
-          isLoading: false,
-          error: null
-        });
-      } else {
-        // 账户已更改，更新地址
-        setWalletData(prev => ({
-          ...prev,
-          address: accounts[0],
-        }));
-      }
-    };
-
-    const handleChainChanged = () => {
-      // 链已更改，刷新页面以获取新的链ID
-      window.location.reload();
-    };
-
-    const handleDisconnect = () => {
-      setWalletData({
-        address: '',
-        signer: null,
-        networkId: null,
-        isConnected: false,
-        isLoading: false,
-        error: null
-      });
-    };
-
-    const removeListeners = setupWalletListeners(
-      handleAccountsChanged,
-      handleChainChanged,
-      handleDisconnect
-    );
-
-    return () => {
-      if (removeListeners) removeListeners();
-    };
-  }, []);
-
-  // 连接钱包方法
-  const connect = async () => {
-    try {
-      setWalletData(prev => ({ ...prev, isLoading: true, error: null }));
-      const connection = await connectWallet();
-      setWalletData(prev => ({ 
-        ...prev, 
-        ...connection, 
-        isLoading: false 
-      }));
-      return connection;
-    } catch (error) {
-      setWalletData(prev => ({ 
-        ...prev, 
-        isLoading: false, 
-        error: error.message 
-      }));
-      throw error;
-    }
-  };
-
-  // 断开钱包连接（注意：MetaMask实际上没有提供断开连接的方法）
-  const disconnect = () => {
-    setWalletData({
-      address: '',
-      signer: null,
-      networkId: null,
-      isConnected: false,
-      isLoading: false,
-      error: null
-    });
-  };
-
-  const value = {
-    ...walletData,
-    connect,
-    disconnect
-  };
-
   return (
-    <Web3Context.Provider value={value}>
+    <OriginalWeb3Provider>
       {children}
-    </Web3Context.Provider>
+    </OriginalWeb3Provider>
   );
 };
 
-// 使用上下文的自定义Hook
+// 适配 useWeb3 钩子，将 connectWallet 映射为 connect
 export const useWeb3 = () => {
-  const context = useContext(Web3Context);
-  if (context === undefined) {
-    throw new Error('useWeb3必须在Web3Provider内部使用');
-  }
-  return context;
+  const originalContext = originalUseWeb3();
+  
+  /**
+   * 加入营地
+   * @param {string} campAddress - 营地合约地址
+   * @param {string} deposit - 所需押金 (in Ether)
+   * @returns {Promise<Object>} - 交易结果
+   */
+  const joinCamp = async (campAddress, deposit) => {
+    if (!originalContext.provider || !originalContext.address) {
+      return { success: false, message: '钱包未连接' };
+    }
+
+    try {
+      const campContract = new ethers.Contract(campAddress, CampImplementation.abi, originalContext.provider.getSigner());
+      const depositInWei = ethers.utils.parseEther(deposit.toString());
+
+      const tx = await campContract.join({
+        value: depositInWei
+      });
+
+      const receipt = await tx.wait();
+      return { success: true, receipt };
+    } catch (error) {
+      console.error('加入营地失败:', error);
+      let message = '加入营地失败';
+      if (error.code === 4001) {
+        message = '用户拒绝了交易';
+      } else if (error.reason) {
+        message = `交易失败: ${error.reason}`;
+      }
+      return { success: false, message, error };
+    }
+  };
+
+  // 创建一个新的对象，包含原始上下文的所有属性
+  const adaptedContext = {
+    ...originalContext,
+    // 将 connectWallet 映射为 connect，并确保 provider 已初始化
+    connect: async () => {
+      try {
+        // 如果 provider 为 null，先初始化一个
+        if (!originalContext.provider && window.ethereum) {
+          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          const accounts = await window.ethereum.request({
+            method: 'eth_requestAccounts'
+          });
+          
+          if (accounts.length > 0) {
+            const signer = provider.getSigner();
+            return {
+              address: accounts[0],
+              signer,
+              isConnected: true
+            };
+          }
+        }
+        
+        // 如果 provider 已存在，调用原始的 connectWallet 方法
+        return await originalContext.connectWallet();
+      } catch (error) {
+        console.error('连接钱包失败:', error);
+        throw error;
+      }
+    },
+    // 将 disconnectWallet 映射为 disconnect
+    disconnect: originalContext.disconnectWallet,
+    // 添加 joinCamp 方法
+    joinCamp,
+  };
+  
+  return adaptedContext;
 }; 

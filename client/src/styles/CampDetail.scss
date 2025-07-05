@@ -160,6 +160,73 @@
   margin-top: 5px;
 }
 
+.white-key .small-info {
+  font-size: 0.75rem;
+  color: #999;
+  margin-top: 3px;
+  font-style: italic;
+}
+
+.white-key .creator-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #666;
+  font-size: 1rem;
+  margin-top: 10px;
+}
+
+.white-key .creator-notice svg {
+  font-size: 1.5rem;
+  color: #999;
+}
+
+.white-key .progress-bar-container {
+  width: 80%;
+  height: 8px;
+  background-color: #e0e0e0;
+  border-radius: 4px;
+  margin: 10px 0;
+  overflow: hidden;
+}
+
+.white-key .progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #ff2a2a, #ff8a8a);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.white-key .action-btn {
+  background: #ff2a2a;
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 50px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: bold;
+  box-shadow: 0 5px 15px rgba(255, 42, 42, 0.3);
+
+  &:hover {
+    background: #ff4a4a;
+    transform: scale(1.05);
+  }
+
+  &:disabled {
+    background: #666;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+}
+
 /* 操作按钮 */
 .action-btn {
   background: #ff2a2a;
@@ -188,6 +255,24 @@
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+/* 闯关按钮 */
+.challenge-btn {
+  background: linear-gradient(135deg, #ff9800, #ffb74d) !important;
+  box-shadow: 0 5px 15px rgba(255, 152, 0, 0.4) !important;
+}
+
+.challenge-btn:hover {
+  background: linear-gradient(135deg, #ffa726, #ffcc02) !important;
+  transform: scale(1.05);
+}
+
+.challenge-btn:disabled {
+  background: #666 !important;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none !important;
 }
 
 /* 参与者列表 */
