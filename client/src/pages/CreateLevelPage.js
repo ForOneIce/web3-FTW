@@ -62,7 +62,7 @@ const CreateLevelPage = () => {
           id: campData.contract_address,
           name: campData.name,
           levels: campData.challenge_count,
-          endDate: new Date(campData.camp_end_date * 1000).toISOString().split('T')[0],
+          endDate: new Date(campData.camp_end_date * 1000),
           participants: campData.participant_count || 0,
           creator: campData.organizer_address,
           state: campData.state
@@ -131,7 +131,7 @@ const CreateLevelPage = () => {
     // 初始化flatpickr
     if (camp && camp.levels && !document.querySelector('.flatpickr-calendar')) {
       const today = new Date();
-      const endDate = new Date(camp.endDate);
+      const endDate = camp.endDate;
       
       // 动态加载flatpickr
       const loadFlatpickr = async () => {
@@ -279,7 +279,7 @@ const CreateLevelPage = () => {
     // 验证日期
     if (camp) {
       const today = new Date();
-      const endDate = new Date(camp.endDate);
+      const endDate = camp.endDate;
       
       for (let i = 1; i <= camp.levels; i++) {
         if (!levelDates[i]) {
@@ -596,7 +596,7 @@ const CreateLevelPage = () => {
           deadlineTypes: deadlines.map(d => typeof d),
           deadlineValues: deadlines,
           currentTimestamp: Math.floor(Date.now() / 1000),
-          campEndDate: camp?.endDate ? Math.floor(new Date(camp.endDate).getTime() / 1000) : 'unknown'
+          campEndDate: camp?.endDate ? Math.floor(camp.endDate.getTime() / 1000) : 'unknown'
         });
       
       // 调用Web3Context中的configChallenges函数
@@ -755,7 +755,7 @@ const CreateLevelPage = () => {
             </div>
             <div className="info-card">
               <div className="label">{language === 'zh' ? "结营日期" : "End Date"}</div>
-              <div className="value">{camp?.endDate}</div>
+              <div className="value">{camp?.endDate ? camp.endDate.toLocaleDateString('zh-CN') : ''}</div>
             </div>
             <div className="info-card">
               <div className="label">{language === 'zh' ? "参与者" : "Participants"}</div>

@@ -92,7 +92,7 @@ const CampsPage = () => {
           challenges: camp.challenge_count,
           participants: camp.participant_count || 0,
           date: new Date(camp.created_at * 1000).toISOString().split('T')[0],
-          campEndDate: new Date(camp.camp_end_date * 1000).toISOString().split('T')[0],
+          campEndDate: new Date(camp.camp_end_date * 1000).toLocaleDateString(language === 'zh' ? 'zh-CN' : 'en-US'),
           minParticipants: camp.min_participants,
           maxParticipants: camp.max_participants,
           deposit: camp.deposit_amount,
